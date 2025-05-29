@@ -1,0 +1,8 @@
+# Copyright 2025 Louis Rokitta
+{
+  "services": {
+    "generate_content": {
+      "service": "mdi:receipt-text"
+    }
+  }
+}
