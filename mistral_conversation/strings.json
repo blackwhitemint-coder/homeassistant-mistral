@@ -1,4 +1,5 @@
 {
+  "domain": "mistral_ai_api",
   "config": {
     "step": {
       "user": {
@@ -24,23 +25,16 @@
           "top_p": "Top P",
           "llm_hass_api": "[%key:common::config_flow::data::llm_hass_api%]",
           "recommended": "Recommended model settings",
-          "reasoning_effort": "Reasoning effort",
-          "web_search": "Enable web search",
-          "search_context_size": "Search context size",
-          "user_location": "Include home location"
+          "reasoning_effort": "Reasoning effort"
         },
         "data_description": {
           "prompt": "Instruct how the LLM should respond. This can be a template.",
-          "reasoning_effort": "How many reasoning tokens the model should generate before creating a response to the prompt (for certain reasoning models)",
-          "web_search": "Allow the model to search the web for the latest information before generating a response",
-          "search_context_size": "High level guidance for the amount of context window space to use for the search",
-          "user_location": "Refine search results based on geography"
+          "reasoning_effort": "How many reasoning tokens the model should generate before creating a response to the prompt (for certain reasoning models)"
         }
       }
     },
     "error": {
-      "model_not_supported": "This model is not supported, please select a different model",
-      "web_search_not_supported": "Web search is not supported by this model"
+      "model_not_supported": "This model is not supported, please select a different model"
     }
   },
   "selector": {
@@ -50,46 +44,12 @@
         "medium": "[%key:common::state::medium%]",
         "high": "[%key:common::state::high%]"
       }
-    },
-    "search_context_size": {
-      "options": {
-        "low": "[%key:common::state::low%]",
-        "medium": "[%key:common::state::medium%]",
-        "high": "[%key:common::state::high%]"
-      }
     }
   },
   "services": {
-    "generate_image": {
-      "name": "Generate image",
-      "description": "Turns a prompt into an image",
-      "fields": {
-        "config_entry": {
-          "name": "Config entry",
-          "description": "The config entry to use for this action"
-        },
-        "prompt": {
-          "name": "Prompt",
-          "description": "The text to turn into an image",
-          "example": "A photo of a dog"
-        },
-        "size": {
-          "name": "Size",
-          "description": "The size of the image to generate"
-        },
-        "quality": {
-          "name": "Quality",
-          "description": "The quality of the image that will be generated"
-        },
-        "style": {
-          "name": "Style",
-          "description": "The style of the generated image"
-        }
-      }
-    },
     "generate_content": {
       "name": "Generate content",
-      "description": "Sends a conversational query to ChatGPT including any attached image or PDF files",
+      "description": "Sends a conversational query to Mistral AI including any attached files (text or PDF only)",
       "fields": {
         "config_entry": {
           "name": "Config entry",
@@ -101,7 +61,7 @@
         },
         "filenames": {
           "name": "Files",
-          "description": "List of files to upload"
+          "description": "List of files to upload (text or PDF only)"
         }
       }
     }

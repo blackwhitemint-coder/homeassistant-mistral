@@ -1,22 +1,13 @@
-"""The OpenAI Conversation integration."""
+"""The Mistral AI Conversation integration."""
+
+# Modified by Louis Rokitta
 
 from __future__ import annotations
-
 import base64
-from mimetypes import guess_file_type
+from mimetypes import guess_type
 from pathlib import Path
+from .mistral_client import MistralClient
 
-import openai
-from openai.types.images_response import ImagesResponse
-from openai.types.responses import (
-    EasyInputMessageParam,
-    Response,
-    ResponseInputFileParam,
-    ResponseInputImageParam,
-    ResponseInputMessageContentListParam,
-    ResponseInputParam,
-    ResponseInputTextParam,
-)
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry
@@ -59,59 +50,29 @@ SERVICE_GENERATE_CONTENT = "generate_content"
 PLATFORMS = (Platform.CONVERSATION,)
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
-type OpenAIConfigEntry = ConfigEntry[openai.AsyncClient]
-
 
 def encode_file(file_path: str) -> tuple[str, str]:
     """Return base64 version of file contents."""
-    mime_type, _ = guess_file_type(file_path)
-    if mime_type is None:
+    mime_type, _ = guess_type(file_path)
+    if (mime_type is None):
         mime_type = "application/octet-stream"
     with open(file_path, "rb") as image_file:
         return (mime_type, base64.b64encode(image_file.read()).decode("utf-8"))
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Set up OpenAI Conversation."""
+    """Set up Mistral AI Conversation."""
 
     async def render_image(call: ServiceCall) -> ServiceResponse:
-        """Render an image with dall-e."""
-        entry_id = call.data["config_entry"]
-        entry = hass.config_entries.async_get_entry(entry_id)
-
-        if entry is None or entry.domain != DOMAIN:
-            raise ServiceValidationError(
-                translation_domain=DOMAIN,
-                translation_key="invalid_config_entry",
-                translation_placeholders={"config_entry": entry_id},
-            )
-
-        client: openai.AsyncClient = entry.runtime_data
-
-        try:
-            response: ImagesResponse = await client.images.generate(
-                model="dall-e-3",
-                prompt=call.data[CONF_PROMPT],
-                size=call.data["size"],
-                quality=call.data["quality"],
-                style=call.data["style"],
-                response_format="url",
-                n=1,
-            )
-        except openai.OpenAIError as err:
-            raise HomeAssistantError(f"Error generating image: {err}") from err
-
-        if not response.data or not response.data[0].url:
-            raise HomeAssistantError("No image returned")
-
-        return response.data[0].model_dump(exclude={"b64_json"})
+        """Render an image with Mistral (not supported, placeholder)."""
+        raise HomeAssistantError("Mistral API does not support image generation.")
 
     async def send_prompt(call: ServiceCall) -> ServiceResponse:
-        """Send a prompt to ChatGPT and return the response."""
+        """Send a prompt to Mistral and return the response."""
         entry_id = call.data["config_entry"]
         entry = hass.config_entries.async_get_entry(entry_id)
 
-        if entry is None or entry.domain != DOMAIN:
+        if (entry is None or entry.domain != DOMAIN):
             raise ServiceValidationError(
                 translation_domain=DOMAIN,
                 translation_key="invalid_config_entry",
@@ -119,82 +80,29 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             )
 
         model: str = entry.options.get(CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL)
-        client: openai.AsyncClient = entry.runtime_data
+        api_key: str = entry.data.get(CONF_API_KEY)
+        client = MistralClient(api_key, get_async_client(hass))
 
-        content: ResponseInputMessageContentListParam = [
-            ResponseInputTextParam(type="input_text", text=call.data[CONF_PROMPT])
+        prompt = call.data[CONF_PROMPT]
+        messages = [
+            {"role": "system", "content": "You are a Home Assistant smart home AI. Only respond with Home Assistant compatible commands."},
+            {"role": "user", "content": prompt},
         ]
-
-        def append_files_to_content() -> None:
-            for filename in call.data[CONF_FILENAMES]:
-                if not hass.config.is_allowed_path(filename):
-                    raise HomeAssistantError(
-                        f"Cannot read `{filename}`, no access to path; "
-                        "`allowlist_external_dirs` may need to be adjusted in "
-                        "`configuration.yaml`"
-                    )
-                if not Path(filename).exists():
-                    raise HomeAssistantError(f"`{filename}` does not exist")
-                mime_type, base64_file = encode_file(filename)
-                if "image/" in mime_type:
-                    content.append(
-                        ResponseInputImageParam(
-                            type="input_image",
-                            image_url=f"data:{mime_type};base64,{base64_file}",
-                            detail="auto",
-                        )
-                    )
-                elif "application/pdf" in mime_type:
-                    content.append(
-                        ResponseInputFileParam(
-                            type="input_file",
-                            filename=filename,
-                            file_data=f"data:{mime_type};base64,{base64_file}",
-                        )
-                    )
-                else:
-                    raise HomeAssistantError(
-                        "Only images and PDF are supported by the OpenAI API,"
-                        f"`{filename}` is not an image file or PDF"
-                    )
-
-        if CONF_FILENAMES in call.data:
-            await hass.async_add_executor_job(append_files_to_content)
-
-        messages: ResponseInputParam = [
-            EasyInputMessageParam(type="message", role="user", content=content)
-        ]
-
+        payload = {
+            "model": model,
+            "messages": messages,
+            "max_tokens": entry.options.get(CONF_MAX_TOKENS, RECOMMENDED_MAX_TOKENS),
+            "temperature": entry.options.get(CONF_TEMPERATURE, RECOMMENDED_TEMPERATURE),
+            "top_p": entry.options.get(CONF_TOP_P, RECOMMENDED_TOP_P),
+            "stream": False,
+        }
         try:
-            model_args = {
-                "model": model,
-                "input": messages,
-                "max_output_tokens": entry.options.get(
-                    CONF_MAX_TOKENS, RECOMMENDED_MAX_TOKENS
-                ),
-                "top_p": entry.options.get(CONF_TOP_P, RECOMMENDED_TOP_P),
-                "temperature": entry.options.get(
-                    CONF_TEMPERATURE, RECOMMENDED_TEMPERATURE
-                ),
-                "user": call.context.user_id,
-                "store": False,
-            }
-
-            if model.startswith("o"):
-                model_args["reasoning"] = {
-                    "effort": entry.options.get(
-                        CONF_REASONING_EFFORT, RECOMMENDED_REASONING_EFFORT
-                    )
-                }
-
-            response: Response = await client.responses.create(**model_args)
-
-        except openai.OpenAIError as err:
+            response = await client.chat(payload)
+        except Exception as err:
             raise HomeAssistantError(f"Error generating content: {err}") from err
-        except FileNotFoundError as err:
-            raise HomeAssistantError(f"Error generating content: {err}") from err
-
-        return {"text": response.output_text}
+        if not response or "choices" not in response or not response["choices"]:
+            raise HomeAssistantError("No response from Mistral API")
+        return {"text": response["choices"][0]["message"]["content"]}
 
     hass.services.async_register(
         DOMAIN,
@@ -203,14 +111,10 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         schema=vol.Schema(
             {
                 vol.Required("config_entry"): selector.ConfigEntrySelector(
-                    {
-                        "integration": DOMAIN,
-                    }
+                    {"integration": DOMAIN}
                 ),
                 vol.Required(CONF_PROMPT): cv.string,
-                vol.Optional(CONF_FILENAMES, default=[]): vol.All(
-                    cv.ensure_list, [cv.string]
-                ),
+                vol.Optional(CONF_FILENAMES, default=[]): vol.All(cv.ensure_list, [cv.string]),
             }
         ),
         supports_response=SupportsResponse.ONLY,
@@ -223,14 +127,10 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         schema=vol.Schema(
             {
                 vol.Required("config_entry"): selector.ConfigEntrySelector(
-                    {
-                        "integration": DOMAIN,
-                    }
+                    {"integration": DOMAIN}
                 ),
                 vol.Required(CONF_PROMPT): cv.string,
-                vol.Optional("size", default="1024x1024"): vol.In(
-                    ("1024x1024", "1024x1792", "1792x1024")
-                ),
+                vol.Optional("size", default="1024x1024"): vol.In(("1024x1024", "1024x1792", "1792x1024")),
                 vol.Optional("quality", default="standard"): vol.In(("standard", "hd")),
                 vol.Optional("style", default="vivid"): vol.In(("vivid", "natural")),
             }
@@ -241,31 +141,14 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     return True
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: OpenAIConfigEntry) -> bool:
-    """Set up OpenAI Conversation from a config entry."""
-    client = openai.AsyncOpenAI(
-        api_key=entry.data[CONF_API_KEY],
-        http_client=get_async_client(hass),
-    )
-
-    # Cache current platform data which gets added to each request (caching done by library)
-    _ = await hass.async_add_executor_job(client.platform_headers)
-
-    try:
-        await hass.async_add_executor_job(client.with_options(timeout=10.0).models.list)
-    except openai.AuthenticationError as err:
-        LOGGER.error("Invalid API key: %s", err)
-        return False
-    except openai.OpenAIError as err:
-        raise ConfigEntryNotReady(err) from err
-
-    entry.runtime_data = client
-
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Set up Mistral AI Conversation from a config entry."""
+    api_key = entry.data.get(CONF_API_KEY)
+    entry.runtime_data = MistralClient(api_key, get_async_client(hass))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Unload OpenAI."""
+    """Unload Mistral AI."""
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
