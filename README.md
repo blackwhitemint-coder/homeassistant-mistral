@@ -69,6 +69,11 @@ Teile dieses Codes basieren auf der offiziellen Home Assistant OpenAI-Integratio
 
 ---
 
+**Links:**
+- [Mistral AI API Docs](https://docs.mistral.ai/api/)
+- [Home Assistant Developer Docs](https://developers.home-assistant.io/)
+- [Official Home Assistant OpenAI-Integration (GitHub)](https://github.com/home-assistant/core/tree/dev/homeassistant/components/openai_conversation)
+
 ## 🇬🇧 English
 
 ### What is this?
@@ -139,4 +144,4 @@ Parts of this code are based on the official Home Assistant OpenAI integration (
 **Links:**
 - [Mistral AI API Docs](https://docs.mistral.ai/api/)
 - [Home Assistant Developer Docs](https://developers.home-assistant.io/)
-- [Offizielle Home Assistant OpenAI-Integration (GitHub)](https://github.com/home-assistant/core/tree/dev/homeassistant/components/openai_conversation)
+- [Official Home Assistant OpenAI-Integration (GitHub)](https://github.com/home-assistant/core/tree/dev/homeassistant/components/openai_conversation)
