@@ -1,8 +1,5 @@
 # Mistral AI für Home Assistant
 
-# Copyright 2025 Louis Rokitta
-# Modified by Louis Rokitta
-
 ---
 
 ## 🇩🇪 Deutsch
