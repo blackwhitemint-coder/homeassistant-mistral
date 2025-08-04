@@ -42,6 +42,7 @@ from .const import (
     RECOMMENDED_REASONING_EFFORT,
     RECOMMENDED_TEMPERATURE,
     RECOMMENDED_TOP_P,
+    DEFAULT_SYSTEM_PROMPT,
 )
 
 SERVICE_GENERATE_IMAGE = "generate_image"
@@ -83,10 +84,11 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         api_key: str = entry.data.get(CONF_API_KEY)
         client = MistralClient(api_key, get_async_client(hass))
 
-        prompt = call.data[CONF_PROMPT]
+        user_prompt = call.data[CONF_PROMPT]
+        system_prompt = entry.options.get(CONF_PROMPT, DEFAULT_SYSTEM_PROMPT)
         messages = [
-            {"role": "system", "content": "You are a Home Assistant smart home AI. Only respond with Home Assistant compatible commands."},
-            {"role": "user", "content": prompt},
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
         ]
         payload = {
             "model": model,

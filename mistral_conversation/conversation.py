@@ -26,6 +26,7 @@ from .const import (
     RECOMMENDED_REASONING_EFFORT,
     RECOMMENDED_TEMPERATURE,
     RECOMMENDED_TOP_P,
+    DEFAULT_SYSTEM_PROMPT,
 )
 
 MAX_TOOL_ITERATIONS = 3
@@ -106,7 +107,7 @@ class MistralConversationEntity(
                 DOMAIN,
                 user_input,
                 options.get(CONF_LLM_HASS_API),
-                options.get(CONF_PROMPT),
+                options.get(CONF_PROMPT, DEFAULT_SYSTEM_PROMPT),
             )
         except conversation.ConverseError as err:
             return err.as_conversation_result()
@@ -130,8 +131,9 @@ class MistralConversationEntity(
     async def _async_handle_chat_log(self, chat_log: conversation.ChatLog) -> None:
         options = self.entry.options
         model = options.get(CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL)
+        system_prompt = options.get(CONF_PROMPT, DEFAULT_SYSTEM_PROMPT)
         messages = [
-            {"role": "system", "content": "You are a Home Assistant smart home AI. Only respond with Home Assistant compatible commands."}
+            {"role": "system", "content": system_prompt}
         ]
         for content in chat_log.content:
             messages.extend(_convert_content_to_param(content))
