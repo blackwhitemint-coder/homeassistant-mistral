@@ -20,6 +20,9 @@ RECOMMENDED_MAX_TOKENS = 150
 RECOMMENDED_REASONING_EFFORT = "low"
 RECOMMENDED_TEMPERATURE = 1.0
 RECOMMENDED_TOP_P = 1.0
+DEFAULT_SYSTEM_PROMPT = (
+    "You are a Home Assistant smart home AI. Only respond with Home Assistant compatible commands."
+)
 
 # Mistral unterstützt keine Websuche, daher deaktiviert
 CONF_WEB_SEARCH = "web_search"
