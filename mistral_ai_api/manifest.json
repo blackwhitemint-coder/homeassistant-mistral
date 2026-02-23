@@ -3,7 +3,7 @@
   "name": "Mistral AI Conversation",
   "version": "1.0.0",
   "after_dependencies": ["assist_pipeline", "intent"],
-  "codeowners": ["@balloob"],
+  "codeowners": ["@blackwhitemint-coder"],
   "config_flow": true,
   "dependencies": ["conversation"],
   "documentation": "https://docs.mistral.ai/api/",
