@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from json import JSONDecodeError
 from typing import Any, Callable, Iterable, Literal
@@ -130,11 +131,62 @@ def _convert_chat_content(content: conversation.Content) -> list[dict]:
     return []
 
 
+def _to_mistral_tool_id(original: str) -> str:
+    """Map tool-call IDs to Mistral's required 9-char alnum format."""
+    if len(original) == 9 and original.isalnum():
+        return original
+    digest = hashlib.sha256(original.encode("utf-8")).digest()
+    alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    value = int.from_bytes(digest[:8], "big")
+    encoded: list[str] = []
+    while value:
+        value, rem = divmod(value, 62)
+        encoded.append(alphabet[rem])
+    mapped = "".join(reversed(encoded)) or "0"
+    return mapped[:9].rjust(9, "0")
+
+
+def _remap_tool_call_ids(messages: list[dict]) -> None:
+    """Apply consistent ID remapping across assistant tool calls and tool results."""
+    id_map: dict[str, str] = {}
+
+    for msg in messages:
+        if msg.get("role") != "assistant":
+            continue
+        tool_calls = msg.get("tool_calls")
+        if not isinstance(tool_calls, list):
+            continue
+        for call in tool_calls:
+            if not isinstance(call, dict):
+                continue
+            raw_id = call.get("id")
+            if not isinstance(raw_id, str) or not raw_id:
+                continue
+            mapped = id_map.get(raw_id)
+            if not mapped:
+                mapped = _to_mistral_tool_id(raw_id)
+                id_map[raw_id] = mapped
+            call["id"] = mapped
+
+    for msg in messages:
+        if msg.get("role") != "tool":
+            continue
+        raw_id = msg.get("tool_call_id")
+        if not isinstance(raw_id, str) or not raw_id:
+            continue
+        mapped = id_map.get(raw_id)
+        if not mapped:
+            mapped = _to_mistral_tool_id(raw_id)
+            id_map[raw_id] = mapped
+        msg["tool_call_id"] = mapped
+
+
 def _build_messages(chat_content: Iterable[conversation.Content]) -> list[dict]:
     """Serialize the entire chat log."""
     messages: list[dict] = []
     for content in chat_content:
         messages.extend(_convert_chat_content(content))
+    _remap_tool_call_ids(messages)
     return messages
 
 
